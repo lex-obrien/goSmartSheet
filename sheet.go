@@ -28,6 +28,8 @@ type Sheet struct {
 	Rows       []Row     `json:"rows"`
 }
 
+//FindValue will search the rows and cols of the sheet looking for a match based on DisplayValue.
+//When a value is found, it will return true along with its row and col positions
 func (s *Sheet) FindValue(val string) (r *Row, c *Cell, exists bool) {
 	for _, r := range s.Rows {
 		for _, c := range r.Cells {
@@ -40,6 +42,8 @@ func (s *Sheet) FindValue(val string) (r *Row, c *Cell, exists bool) {
 	return nil, nil, false
 }
 
+//FindValues will search the rows and cols of the sheet looking for matches based on DisplayValue.
+//It will return the items that were not found on the sheet.
 func (s *Sheet) FindValues(vals []string) (valsNotFound []string) {
 	//convert array to map for easy lookups
 	m := make(map[string]bool)
@@ -61,8 +65,10 @@ func (s *Sheet) FindValues(vals []string) (valsNotFound []string) {
 
 	//at the end the map only contains not found items, build array to send back
 	retList := make([]string, len(m))
+	i := 0
 	for k := range m {
-		retList = append(retList, k)
+		retList[i] = k
+		i++
 	}
 
 	return retList
@@ -81,19 +87,23 @@ type Column struct {
 
 //Row is a SmartSheet row
 type Row struct {
-	ID         int64     `json:"id"`
-	RowNumber  int       `json:"rowNumber"`
-	Expanded   bool      `json:"expanded"`
-	CreatedAt  time.Time `json:"createdAt"`
-	ModifiedAt time.Time `json:"modifiedAt"`
-	Cells      []Cell    `json:"cells"`
-	ParentID   int64     `json:"parentId,omitempty"`
-	SiblingID  int64     `json:"siblingId,omitempty"`
+	ID             int64      `json:"id,omitempty"`
+	RowNumber      int        `json:"rowNumber,omitempty"`
+	Expanded       bool       `json:"expanded,omitempty"`
+	CreatedAt      *time.Time `json:"createdAt,omitempty"`
+	ModifiedAt     *time.Time `json:"modifiedAt,omitempty"`
+	Cells          []Cell     `json:"cells"`
+	ParentID       int64      `json:"parentId,omitempty"`
+	InCriticalPath bool       `json:"inCriticalPath,omitempty"`
+	Locked         bool       `json:"locked,omitempty"`
+
 	//row attributes for location, etc
-	//TODO: put these back in...
-	// ToTop bool
-	// ToBottom bool
-	// Above bool
-	// Ident int16
-	// Outdent int16
+	ToTop    bool  `json:"toTop,omitempty"`
+	ToBottom bool  `json:"toBottom,omitempty"`
+	Ident    int16 `json:"ident,omitempty"`
+	Outdent  int16 `json:"outdent,omitempty"`
+
+	//Above will never be populated on resposnes, but can be used on Requests
+	Above     bool  `json:"above,omitempty"`
+	SiblingID int64 `json:"siblingId,omitempty"`
 }

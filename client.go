@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-//SmartSheetAPI is used to interact with the SS API
+//Client is used to interact with the SamartSheet API
 type Client struct {
 	url    string
 	apiKey string
@@ -20,7 +20,7 @@ type Client struct {
 func GetClient(apiKey string) *Client {
 	//default to prod API
 	api := &Client{url: "https://api.smartsheet.com/2.0", apiKey: apiKey}
-	api.client = &http.Client{} //per docs clientss should be made once, https://golang.org/pkg/net/http/
+	api.client = &http.Client{} //per docs clients should be made once, https://golang.org/pkg/net/http/
 
 	return api
 }
@@ -138,14 +138,26 @@ func (c *Client) Get(path string) (io.ReadCloser, error) {
 	return resp.Body, nil
 }
 
-func (c *Client) AddRowToSheet(sheetId string, cellValues ...CellValue) (io.ReadCloser, error) {
+//RowPostOptions is used in conjuction with Adding a Row to a sheet to specific location
+type RowPostOptions int16
+
+const (
+	//ToTop will Add or move the Row to the top of the Sheet.
+	ToTop RowPostOptions = iota
+	//ToBottom will Add or move the Row to the bottom of the Sheet.
+	ToBottom
+	//Above will Add or move the Row directly above the specified sibling Row (at the same hierarchical level).
+	//Sibling Row must be populated for this option to work
+	Above
+)
+
+func (c *Client) AddRowToSheet(sheetID string, opt RowPostOptions, cellValues ...CellValue) (io.ReadCloser, error) {
 
 	//TODO: validate length of cols with cells, match types, etc
 	//right now this assumes the consumer is putting them in the correct order
+	var r Row
 
-	var cells []Cell
-
-	cols, err := c.GetColumns(sheetId)
+	cols, err := c.GetColumns(sheetID)
 	if err != nil {
 		log.Fatalf("Error: %v\n", err)
 	}
@@ -158,12 +170,23 @@ func (c *Client) AddRowToSheet(sheetId string, cellValues ...CellValue) (io.Read
 	for i, col := range cols {
 		c := Cell{ColumnID: col.ID}
 		c.Value = &cellValues[i]
-		cells = append(cells, c)
+		r.Cells = append(r.Cells, c)
 	}
 
 	//TODO: make this just use a real row...
 	//turns out their API made more sense than I thought... this is just a row, nothing special, probably dont need my PostObjs method...
-	body, err := c.PostObjects("sheets/597019279550340/rows", `[{"toBottom":true, "cells": %v }]`, cells)
+
+	//body, err := c.PostObjects("sheets/597019279550340/rows", `[{"toBottom":true, "cells": %v }]`, cells)
+	switch opt {
+	case ToBottom:
+		r.ToBottom = true
+	case ToTop:
+		r.ToTop = true
+	case Above:
+		log.Fatal("Above not implemented yet")
+	}
+
+	body, err := c.PostSingleObject(fmt.Sprintf("sheets/%v/rows", sheetID), r)
 	if err != nil {
 		log.Fatalf("Error: %v\n", err)
 	}
@@ -193,9 +216,24 @@ func (c *Client) PostObjects(path string, jsonWrapper string, data ...interface{
 	return c.Post(path, bodyData)
 }
 
+func (c *Client) PostSingleObject(path string, data interface{}) (io.ReadCloser, error) {
+
+	//build data array
+	b := new(bytes.Buffer)
+	err := json.NewEncoder(b).Encode(data)
+	if err != nil {
+		log.Fatalf("Failed to encode: %v\n", err)
+	}
+
+	log.Printf("Body:\n%v\n", string(b.Bytes()))
+
+	return c.Post(path, b)
+}
+
 func (c *Client) Post(path string, body io.Reader) (io.ReadCloser, error) {
 
 	req, err := http.NewRequest("POST", c.url+"/"+path, body)
+
 	if err != nil {
 		log.Fatalln("Failed: %v", err)
 		return nil, err
