@@ -11,16 +11,18 @@ type Cell struct {
 	DisplayValue string     `json:"displayValue,omitempty"`
 }
 
+//CellValue represents the possible strongly typed values that could exist in a SS cell
 //another good article on it..
 //http://attilaolah.eu/2013/11/29/json-decoding-in-go/
-
 type CellValue struct {
 	Value json.RawMessage
 
 	StringVal string
-	IntVal    int64
+	IntVal    int
+	FloatVal  float32
 }
 
+//MarshalJSON is a custom marshaller for CellValue
 func (c *CellValue) MarshalJSON() ([]byte, error) {
 	if c.StringVal != "" {
 		return json.Marshal(c.StringVal)
@@ -30,18 +32,28 @@ func (c *CellValue) MarshalJSON() ([]byte, error) {
 		return json.Marshal(c.IntVal)
 	}
 
+	if c.FloatVal != 0 {
+		return json.Marshal(c.FloatVal)
+	}
+
 	return json.Marshal(c.Value) //default raw message
 }
 
+//UnmarshalJSON is a custom unmarshaller for CellValue
 func (c *CellValue) UnmarshalJSON(b []byte) (err error) {
 	s := ""
 	if err = json.Unmarshal(b, &s); err == nil {
 		c.StringVal = s
 		return
 	}
-	var i int64
+	var i int
 	if err = json.Unmarshal(b, &i); err == nil {
 		c.IntVal = i
+		return
+	}
+	var f float32
+	if err = json.Unmarshal(b, &f); err == nil {
+		c.FloatVal = f
 		return
 	}
 

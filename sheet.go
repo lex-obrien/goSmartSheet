@@ -1,6 +1,7 @@
 package goSmartSheet
 
 import (
+	"strconv"
 	"strings"
 	"time"
 )
@@ -26,6 +27,11 @@ type Sheet struct {
 	ModifiedAt time.Time `json:"modifiedAt"`
 	Columns    []Column  `json:"columns"`
 	Rows       []Row     `json:"rows"`
+}
+
+//IDToA will return a string representation of the sheetId for easier usage within the SSClient
+func (s *Sheet) IDToA() string {
+	return strconv.FormatInt(s.ID, 10)
 }
 
 //FindValue will search the rows and cols of the sheet looking for a match based on DisplayValue.

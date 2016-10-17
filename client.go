@@ -17,6 +17,8 @@ type Client struct {
 	client *http.Client
 }
 
+//GetClient will return back a SmartSheet client based on the specified apiKey
+//Currently, this will always point to the prouction API
 func GetClient(apiKey string) *Client {
 	//default to prod API
 	api := &Client{url: "https://api.smartsheet.com/2.0", apiKey: apiKey}
@@ -25,12 +27,14 @@ func GetClient(apiKey string) *Client {
 	return api
 }
 
+//GetSheetFilterCols returns a Sheet but filter to only the specified columns
+//Columns are specified via the Column Id
 func (c *Client) GetSheetFilterCols(id string, onlyTheseColumns []string) (Sheet, error) {
 	filter := "columnIds=" + strings.Join(onlyTheseColumns, ",")
 	return c.GetSheet(id, filter)
 }
 
-///GetSheet returns a sheet with the specified Id
+//GetSheet returns a sheet with the specified Id
 func (c *Client) GetSheet(id, queryFilter string) (Sheet, error) {
 	s := Sheet{}
 
@@ -55,6 +59,7 @@ func (c *Client) GetSheet(id, queryFilter string) (Sheet, error) {
 	return s, nil
 }
 
+//GetColumns will return back the columns for the specified Sheet
 func (c *Client) GetColumns(sheetID string) (cols []Column, err error) {
 	path := fmt.Sprintf("sheets/%v/columns", sheetID)
 
@@ -173,10 +178,6 @@ func (c *Client) AddRowToSheet(sheetID string, opt RowPostOptions, cellValues ..
 		r.Cells = append(r.Cells, c)
 	}
 
-	//TODO: make this just use a real row...
-	//turns out their API made more sense than I thought... this is just a row, nothing special, probably dont need my PostObjs method...
-
-	//body, err := c.PostObjects("sheets/597019279550340/rows", `[{"toBottom":true, "cells": %v }]`, cells)
 	switch opt {
 	case ToBottom:
 		r.ToBottom = true
@@ -187,6 +188,51 @@ func (c *Client) AddRowToSheet(sheetID string, opt RowPostOptions, cellValues ..
 	}
 
 	body, err := c.PostSingleObject(fmt.Sprintf("sheets/%v/rows", sheetID), r)
+	if err != nil {
+		log.Fatalf("Error: %v\n", err)
+	}
+
+	return body, nil
+}
+
+func (c *Client) AddRowsToSheet(sheetID string, opt RowPostOptions, rows []Row) (io.ReadCloser, error) {
+
+	//TODO: validate length of cols with cells, match types, etc
+	//right now this assumes the consumer is putting them in the correct order
+
+	cols, err := c.GetColumns(sheetID)
+	if err != nil {
+		log.Fatalf("Error: %v\n", err)
+	}
+
+	//adjust each row to match values
+	for i := range rows {
+
+		//TODO: still confused why I need this?  Assuming because the range copies things still....
+		r := &rows[i]
+
+		if len(cols) != len(r.Cells) {
+			log.Fatalf("Data Value length must match columsn in sheet\n")
+			return nil, nil //TODO: make an actual error
+		}
+
+		//adjust col IDs
+		for j := range r.Cells {
+			r.Cells[j].ColumnID = cols[j].ID
+		}
+
+		//adjust row options
+		switch opt {
+		case ToBottom:
+			r.ToBottom = true
+		case ToTop:
+			r.ToTop = true
+		case Above:
+			log.Fatal("Above not implemented yet")
+		}
+	}
+
+	body, err := c.PostSingleObject(fmt.Sprintf("sheets/%v/rows", sheetID), rows)
 	if err != nil {
 		log.Fatalf("Error: %v\n", err)
 	}
