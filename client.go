@@ -45,15 +45,14 @@ func (c *Client) GetSheet(id, queryFilter string) (Sheet, error) {
 
 	body, err := c.Get(path)
 	if err != nil {
-		log.Fatalf("Failed: %v\n", err)
-		return s, err
+		return s, fmt.Errorf("Failed to get sheet (ID: %v): %v", id, err)
+
 	}
 	defer body.Close()
 
 	dec := json.NewDecoder(body)
 	if err := dec.Decode(&s); err != nil {
-		log.Fatalf("Failed to decode: %v\n", err)
-		return s, err
+		return s, fmt.Errorf("Failed to decode: %v", err)
 	}
 
 	return s, nil
@@ -70,16 +69,14 @@ func (c *Client) GetColumns(sheetID string) (cols []Column, err error) {
 	defer body.Close()
 
 	var resp PaginatedResponse
-	//TODO: need generic handling and ability to read from pages to get all datc... eventually
+	//TODO: need generic handling and ability to read from pages to get all data... eventually
 	dec := json.NewDecoder(body)
 	if err = dec.Decode(&resp); err != nil {
-		log.Fatalf("Failed to decode: %v\n", err)
-		return
+		return nil, fmt.Errorf("Failed to decode response: %v", err)
 	}
 
 	if err = json.Unmarshal(resp.Data, &cols); err != nil {
-		log.Fatalf("Failed to decode data: %v\n", err)
-		return
+		return nil, fmt.Errorf("Failed to decode columns: %v", err)
 	}
 
 	return
@@ -89,8 +86,7 @@ func (c *Client) GetColumns(sheetID string) (cols []Column, err error) {
 func (c *Client) GetJSONString(path string, prettify bool) (string, error) {
 	body, err := c.Get(path)
 	if err != nil {
-		log.Fatalf("Failed: %v\n", err)
-		return "", err
+		return "", fmt.Errorf("Failed to Get JSON String: %v", err)
 	}
 	defer body.Close()
 
@@ -102,14 +98,12 @@ func (c *Client) GetJSONString(path string, prettify bool) (string, error) {
 
 		dec := json.NewDecoder(body)
 		if err := dec.Decode(&m); err != nil {
-			log.Fatalf("Failed to decode: %v\n", err)
-			return "", err
+			return "", fmt.Errorf("Failed to decode: %v\n", err)
 		}
 
 		b, err := json.MarshalIndent(&m, "", "\t")
 		if err != nil {
-			log.Fatalf("Error during indent: %v\n", err)
-			return "", err
+			return "", fmt.Errorf("Error during indent: %v\n", err)
 		}
 
 		s = string(b)
@@ -121,73 +115,20 @@ func (c *Client) GetJSONString(path string, prettify bool) (string, error) {
 	return s, nil
 }
 
-//Get will append the proper info to pull from the API
-func (c *Client) Get(path string) (io.ReadCloser, error) {
-
-	req, err := http.NewRequest("GET", c.url+"/"+path, nil)
-	if err != nil {
-		log.Fatalln("Failed: %v", err)
-		return nil, err
-	}
-
-	log.Printf("URL: %v\n", req.URL)
-
-	req.Header.Add("Authorization", "Bearer "+c.apiKey)
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		log.Fatalln("Failed: %v", err)
-		return nil, err
-	}
-
-	return resp.Body, nil
-}
-
-func (c *Client) AddRowToSheet(sheetID string, opt RowPostOptions, cellValues ...CellValue) (io.ReadCloser, error) {
-
-	//TODO: validate length of cols with cells, match types, etc
-	//right now this assumes the consumer is putting them in the correct order
+//AddRowToSheet will add a single row of data to an existing smartsheet by ID based on the specified cellValues
+func (c *Client) AddRowToSheet(sheetID string, rowOpt RowPostOptions, cellValues ...CellValue) (io.ReadCloser, error) {
 	var r Row
 
-	cols, err := c.GetColumns(sheetID)
-	if err != nil {
-		log.Fatalf("Error: %v\n", err)
-	}
-
-	//TODO: apply multi-row validation logic here as well
-
-	if len(cols) != len(cellValues) {
-		log.Fatalf("Data Value length must match columns in sheet\n")
-		return nil, nil //TODO: make an actual error
-	}
-
-	for i, col := range cols {
-		c := Cell{ColumnID: col.ID}
-		c.Value = &cellValues[i]
+	for i := range cellValues {
+		c := Cell{Value: &cellValues[i]}
 		r.Cells = append(r.Cells, c)
 	}
 
-	switch opt {
-	case ToBottom:
-		r.ToBottom = true
-	case ToTop:
-		r.ToTop = true
-	case Above:
-		log.Fatal("Above not implemented yet")
-	}
-
-	body, err := c.PostSingleObject(fmt.Sprintf("sheets/%v/rows", sheetID), r)
-	if err != nil {
-		log.Fatalf("Error: %v\n", err)
-	}
-
-	return body, nil
+	return c.AddRowsToSheet(sheetID, rowOpt, []Row{r}, NormalValidation)
 }
 
+//AddRowsToSheet will add the specified rows to a sheet based on ID
 func (c *Client) AddRowsToSheet(sheetID string, rowOpt RowPostOptions, rows []Row, opt PostOptions) (io.ReadCloser, error) {
-
-	//TODO: validate length of cols with cells, match types, etc
-	//right now this assumes the consumer is putting them in the correct order
 
 	//adjust each row to match values
 	var sheetCols []Column
@@ -206,15 +147,13 @@ func (c *Client) AddRowsToSheet(sheetID string, rowOpt RowPostOptions, rows []Ro
 					sheetCols, err = c.GetColumns(sheetID)
 					colsPopulated = true
 					if err != nil {
-						log.Fatalf("Error: %v\n", err)
-						return nil, err //TODO: make an actual error
+						return nil, fmt.Errorf("Cannot retrieve columns: %v\n", err)
 					}
 
 					//perform basic validation
 					err = ValidateCellsInRow(r.Cells, sheetCols, opt)
 					if err != nil {
-						log.Fatalf("Error: %v\n", err)
-						return nil, err //TODO: make an actual error
+						return nil, err
 					}
 				}
 
@@ -228,87 +167,78 @@ func (c *Client) AddRowsToSheet(sheetID string, rowOpt RowPostOptions, rows []Ro
 			r.ToBottom = true
 		case ToTop:
 			r.ToTop = true
-		case Above:
-			log.Fatal("Above not implemented yet")
+		default:
+			return nil, fmt.Errorf("Specified row option not yet implemented: %v", rowOpt)
 		}
 	}
 
-	body, err := c.PostSingleObject(fmt.Sprintf("sheets/%v/rows", sheetID), rows)
+	body, err := c.PostObject(fmt.Sprintf("sheets/%v/rows", sheetID), rows)
 	if err != nil {
-		log.Fatalf("Error: %v\n", err)
+		return nil, err
 	}
 
 	return body, nil
 }
 
-//Pending deletion
-// func (c *Client) PostObjects(path string, jsonWrapper string, data ...interface{}) (io.ReadCloser, error) {
-
-// 	//build data array
-// 	log.Println("post")
-// 	jsonData := make([]interface{}, len(data))
-// 	for i, d := range data {
-// 		b := new(bytes.Buffer)
-// 		err := json.NewEncoder(b).Encode(d)
-// 		if err != nil {
-// 			log.Fatalf("Failed to encode: %v\n", err)
-// 		}
-// 		jsonData[i] = b.String()
-// 	}
-// 	//apply format to wrapper
-// 	bodyData := new(bytes.Buffer)
-// 	fmt.Fprintf(bodyData, jsonWrapper, jsonData...)
-
-// 	log.Printf("Body:\n%v\n", string(bodyData.Bytes()))
-
-// 	return c.Post(path, bodyData)
-// }
-
-func (c *Client) PostSingleObject(path string, data interface{}) (io.ReadCloser, error) {
-
-	//build data array
+func encodeData(data interface{}) (io.Reader, error) {
 	b := new(bytes.Buffer)
 	err := json.NewEncoder(b).Encode(data)
 	if err != nil {
-		log.Fatalf("Failed to encode: %v\n", err)
+		return nil, fmt.Errorf("Failed to encode: %v", err)
 	}
 
 	log.Printf("Body:\n%v\n", string(b.Bytes()))
 
-	return c.Post(path, b)
+	return b, nil
 }
 
+//PostObject will post data as JSOn
+func (c *Client) PostObject(path string, data interface{}) (io.ReadCloser, error) {
+
+	b, err := encodeData(data)
+	if err != nil {
+		return c.Post(path, b)
+	}
+
+	return nil, err
+}
+
+//Post will send a POST request through the client
 func (c *Client) Post(path string, body io.Reader) (io.ReadCloser, error) {
-
-	req, err := http.NewRequest("POST", c.url+"/"+path, body)
-
-	if err != nil {
-		log.Fatalln("Failed: %v", err)
-		return nil, err
-	}
-
-	log.Printf("URL: %v\n", req.URL)
-
-	req.Header.Add("Authorization", "Bearer "+c.apiKey)
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		log.Fatalln("Failed: %v", err)
-		return nil, err
-	}
-
-	//TODO: check resp.StatusCode?
-	return resp.Body, nil
+	return c.send("POST", path, body)
 }
 
-//TODO: consolidate PUT and post
-func (c *Client) Put(path string, body io.Reader) (io.ReadCloser, error) {
+//PutObject will post data as JSOn
+func (c *Client) PutObject(path string, data interface{}) (io.ReadCloser, error) {
 
-	req, err := http.NewRequest("PUT", c.url+"/"+path, body)
+	b, err := encodeData(data)
+	if err != nil {
+		return c.Put(path, b)
+	}
+
+	return nil, err
+}
+
+//Put will send a PUT request through the client
+func (c *Client) Put(path string, body io.Reader) (io.ReadCloser, error) {
+	return c.send("PUT", path, body)
+}
+
+//Delete will send a DELETE request through the client
+func (c *Client) Delete(path string) (io.ReadCloser, error) {
+	return c.send("DELETE", path, nil)
+}
+
+//Get will append the proper info to pull from the API
+func (c *Client) Get(path string) (io.ReadCloser, error) {
+	return c.send("GET", path, nil)
+}
+
+func (c *Client) send(verb string, path string, body io.Reader) (io.ReadCloser, error) {
+	req, err := http.NewRequest(verb, c.url+"/"+path, body)
 
 	if err != nil {
-		log.Fatalln("Failed: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("Failed to create %v request: %v", verb, err)
 	}
 
 	log.Printf("URL: %v\n", req.URL)
@@ -317,8 +247,7 @@ func (c *Client) Put(path string, body io.Reader) (io.ReadCloser, error) {
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		log.Fatalln("Failed: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("Failed to %v: %v", verb, err)
 	}
 
 	//TODO: check resp.StatusCode?
