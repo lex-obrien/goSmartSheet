@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -180,6 +181,39 @@ func (c *Client) AddRowsToSheet(sheetID string, rowOpt RowPostOptions, rows []Ro
 	return body, nil
 }
 
+//DeleteRowsFromSheet will delte the specified rowes from the specified sheet
+func (c *Client) DeleteRowsFromSheet(sheetID string, rows []Row) (io.ReadCloser, error) {
+	ids := []string{}
+	for _, r := range rows {
+		ids = append(ids, strconv.FormatInt(r.ID, 10))
+	}
+
+	return c.DeleteRowsIdsFromSheet(sheetID, ids)
+}
+
+//DeleteRowsIdsFromSheet will delete the specified rowIDs from the specified sheet
+func (c *Client) DeleteRowsIdsFromSheet(sheetID string, ids []string) (io.ReadCloser, error) {
+	path := fmt.Sprintf("/sheets/%v/rows?ids=%v", sheetID, strings.Join(ids, ","))
+	return c.Delete(path)
+}
+
+//UpdateRowsOnSheet will update the specified rows and data
+func (c *Client) UpdateRowsOnSheet(sheetID string, rows []Row) (io.ReadCloser, error) {
+	//clean the row to remove the data that cannot be sent accross
+
+	// //the caller needs to pass in clean data right now
+	// newRows := []Row{}
+	// copy(newRows, rows)
+
+	// for i := range newRows {
+	// 	newRows[i].CreatedAt = nil
+	// 	newRows[i].ModifiedAt = nil
+	// 	newRows[i]. = nil
+	// }
+
+	return c.PutObject(fmt.Sprintf("sheets/%v/rows", sheetID), rows)
+}
+
 func encodeData(data interface{}) (io.Reader, error) {
 	b := new(bytes.Buffer)
 	err := json.NewEncoder(b).Encode(data)
@@ -213,10 +247,9 @@ func (c *Client) PutObject(path string, data interface{}) (io.ReadCloser, error)
 
 	b, err := encodeData(data)
 	if err != nil {
-		return c.Put(path, b)
+		return nil, err
 	}
-
-	return nil, err
+	return c.Put(path, b)
 }
 
 //Put will send a PUT request through the client

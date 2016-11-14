@@ -22,6 +22,30 @@ type CellValue struct {
 	FloatVal  float32
 }
 
+//SetString will clear all values and set only the string
+//This should be used when updating an existing row especially if the type if changing
+func (c *CellValue) SetString(v string) {
+	c.IntVal = 0
+	c.FloatVal = 0
+	c.StringVal = v
+}
+
+//SetInt will clear all values and set only the string
+//This should be used when updating an existing row especially if the type if changing
+func (c *CellValue) SetInt(v int) {
+	c.IntVal = v
+	c.FloatVal = 0
+	c.StringVal = ""
+}
+
+//SetFloat will clear all values and set only the string
+//This should be used when updating an existing row especially if the type if changing
+func (c *CellValue) SetFloat(v float32) {
+	c.IntVal = 0
+	c.FloatVal = v
+	c.StringVal = ""
+}
+
 //MarshalJSON is a custom marshaller for CellValue
 func (c *CellValue) MarshalJSON() ([]byte, error) {
 	if c.StringVal != "" {
