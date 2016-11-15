@@ -231,10 +231,10 @@ func (c *Client) PostObject(path string, data interface{}) (io.ReadCloser, error
 
 	b, err := encodeData(data)
 	if err != nil {
-		return c.Post(path, b)
+		return nil, err
 	}
 
-	return nil, err
+	return c.Post(path, b)
 }
 
 //Post will send a POST request through the client
