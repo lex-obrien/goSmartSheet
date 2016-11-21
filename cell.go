@@ -2,6 +2,7 @@ package goSmartSheet
 
 import (
 	"encoding/json"
+	"fmt"
 )
 
 //Cell is a SmartSheet cell
@@ -20,6 +21,10 @@ type CellValue struct {
 	StringVal string
 	IntVal    int
 	FloatVal  float32
+}
+
+func (c *CellValue) String() string {
+	return fmt.Sprintf("String: %v; Int: %v; Float:%v", c.StringVal, c.IntVal, c.FloatVal)
 }
 
 //SetString will clear all values and set only the string

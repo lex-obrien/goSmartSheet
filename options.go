@@ -1,6 +1,6 @@
 package goSmartSheet
 
-import "errors"
+import "github.com/pkg/errors"
 
 //RowPostOptions is used in conjuction with Adding a Row to a sheet to specific location
 type RowPostOptions int16

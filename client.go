@@ -7,8 +7,11 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"path"
 	"strconv"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 //Client is used to interact with the SamartSheet API
@@ -46,14 +49,14 @@ func (c *Client) GetSheet(id, queryFilter string) (Sheet, error) {
 
 	body, err := c.Get(path)
 	if err != nil {
-		return s, fmt.Errorf("Failed to get sheet (ID: %v): %v", id, err)
+		return s, errors.Wrapf(err, "Failed to get sheet (ID: %v)", id)
 
 	}
 	defer body.Close()
 
 	dec := json.NewDecoder(body)
 	if err := dec.Decode(&s); err != nil {
-		return s, fmt.Errorf("Failed to decode: %v", err)
+		return s, errors.Wrap(err, "Failed to decode")
 	}
 
 	return s, nil
@@ -73,11 +76,11 @@ func (c *Client) GetColumns(sheetID string) (cols []Column, err error) {
 	//TODO: need generic handling and ability to read from pages to get all data... eventually
 	dec := json.NewDecoder(body)
 	if err = dec.Decode(&resp); err != nil {
-		return nil, fmt.Errorf("Failed to decode response: %v", err)
+		return nil, errors.Wrap(err, "Failed to decode response")
 	}
 
 	if err = json.Unmarshal(resp.Data, &cols); err != nil {
-		return nil, fmt.Errorf("Failed to decode columns: %v", err)
+		return nil, errors.Wrap(err, "Failed to decode columns")
 	}
 
 	return
@@ -87,7 +90,7 @@ func (c *Client) GetColumns(sheetID string) (cols []Column, err error) {
 func (c *Client) GetJSONString(path string, prettify bool) (string, error) {
 	body, err := c.Get(path)
 	if err != nil {
-		return "", fmt.Errorf("Failed to Get JSON String: %v", err)
+		return "", errors.Wrap(err, "Failed to Get JSON String")
 	}
 	defer body.Close()
 
@@ -99,12 +102,12 @@ func (c *Client) GetJSONString(path string, prettify bool) (string, error) {
 
 		dec := json.NewDecoder(body)
 		if err := dec.Decode(&m); err != nil {
-			return "", fmt.Errorf("Failed to decode: %v\n", err)
+			return "", errors.Wrap(err, "Failed to decode")
 		}
 
 		b, err := json.MarshalIndent(&m, "", "\t")
 		if err != nil {
-			return "", fmt.Errorf("Error during indent: %v\n", err)
+			return "", errors.Wrap(err, "Error during indent")
 		}
 
 		s = string(b)
@@ -148,7 +151,7 @@ func (c *Client) AddRowsToSheet(sheetID string, rowOpt RowPostOptions, rows []Ro
 					sheetCols, err = c.GetColumns(sheetID)
 					colsPopulated = true
 					if err != nil {
-						return nil, fmt.Errorf("Cannot retrieve columns: %v\n", err)
+						return nil, errors.Wrapf(err, "Cannot retrieve columns: %v")
 					}
 
 					//perform basic validation
@@ -169,7 +172,7 @@ func (c *Client) AddRowsToSheet(sheetID string, rowOpt RowPostOptions, rows []Ro
 		case ToTop:
 			r.ToTop = true
 		default:
-			return nil, fmt.Errorf("Specified row option not yet implemented: %v", rowOpt)
+			return nil, errors.Errorf("Specified row option not yet implemented: %v", rowOpt)
 		}
 	}
 
@@ -193,7 +196,7 @@ func (c *Client) DeleteRowsFromSheet(sheetID string, rows []Row) (io.ReadCloser,
 
 //DeleteRowsIdsFromSheet will delete the specified rowIDs from the specified sheet
 func (c *Client) DeleteRowsIdsFromSheet(sheetID string, ids []string) (io.ReadCloser, error) {
-	path := fmt.Sprintf("/sheets/%v/rows?ids=%v", sheetID, strings.Join(ids, ","))
+	path := fmt.Sprintf("sheets/%v/rows?ids=%v", sheetID, strings.Join(ids, ","))
 	return c.Delete(path)
 }
 
@@ -218,7 +221,7 @@ func encodeData(data interface{}) (io.Reader, error) {
 	b := new(bytes.Buffer)
 	err := json.NewEncoder(b).Encode(data)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to encode: %v", err)
+		return nil, errors.Wrap(err, "Failed to encode")
 	}
 
 	log.Printf("Body:\n%v\n", string(b.Bytes()))
@@ -267,11 +270,11 @@ func (c *Client) Get(path string) (io.ReadCloser, error) {
 	return c.send("GET", path, nil)
 }
 
-func (c *Client) send(verb string, path string, body io.Reader) (io.ReadCloser, error) {
-	req, err := http.NewRequest(verb, c.url+"/"+path, body)
+func (c *Client) send(verb string, p string, body io.Reader) (io.ReadCloser, error) {
+	req, err := http.NewRequest(verb, path.Join(c.url, p), body)
 
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create %v request: %v", verb, err)
+		return nil, errors.Wrapf(err, "Failed to create %v request", verb)
 	}
 
 	log.Printf("URL: %v\n", req.URL)
@@ -280,7 +283,7 @@ func (c *Client) send(verb string, path string, body io.Reader) (io.ReadCloser, 
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to %v: %v", verb, err)
+		return nil, errors.Wrapf(err, "Failed to %v", verb)
 	}
 
 	//TODO: check resp.StatusCode?
