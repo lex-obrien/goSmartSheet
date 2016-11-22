@@ -7,7 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"path"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -23,12 +23,31 @@ type Client struct {
 
 //GetClient will return back a SmartSheet client based on the specified apiKey
 //Currently, this will always point to the prouction API
-func GetClient(apiKey string) *Client {
+func GetClient(apiKey string, u string) (api *Client, err error) {
 	//default to prod API
-	api := &Client{url: "https://api.smartsheet.com/2.0", apiKey: apiKey}
-	api.client = &http.Client{} //per docs clients should be made once, https://golang.org/pkg/net/http/
+	if u == "" {
+		u = "https://api.smartsheet.com/2.0"
+	}
 
-	return api
+	//validate url
+	_, err = validateURL(u)
+	if err != nil {
+		return
+	}
+
+	api = &Client{url: u, apiKey: apiKey}
+	api.client = &http.Client{} //per docs clients should be made once, https://golang.org/pkg/net/http/
+	return
+}
+
+func validateURL(u string) (isValid bool, err error) {
+	//validate url
+	_, err = url.Parse(u)
+	if err != nil {
+		err = errors.Wrap(err, "Invalid Smartsheet URL")
+	}
+	isValid = true
+	return
 }
 
 //GetSheetFilterCols returns a Sheet but filter to only the specified columns
@@ -271,7 +290,15 @@ func (c *Client) Get(path string) (io.ReadCloser, error) {
 }
 
 func (c *Client) send(verb string, p string, body io.Reader) (io.ReadCloser, error) {
-	req, err := http.NewRequest(verb, path.Join(c.url, p), body)
+	var fullPath = c.url + "/" + p
+
+	//validate URL
+	_, err := validateURL(fullPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(verb, fullPath, body)
 
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to create %v request", verb)
