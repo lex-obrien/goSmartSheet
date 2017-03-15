@@ -24,6 +24,11 @@ type Client struct {
 //GetClient will return back a SmartSheet client based on the specified apiKey
 //Currently, this will always point to the prouction API
 func GetClient(apiKey string, u string) (api *Client, err error) {
+	if apiKey == "" {
+		err = errors.New("API Key must be provided")
+		return
+	}
+
 	//default to prod API
 	if u == "" {
 		u = "https://api.smartsheet.com/2.0"

@@ -23,6 +23,23 @@ type CellValue struct {
 	FloatVal  float32
 }
 
+//AsString returns the underlying value as a string regardless of type
+func (c *CellValue) AsString() (val string) {
+	if c.StringVal != "" {
+		val = c.StringVal
+	}
+
+	if c.IntVal != 0 {
+		val = (string)(c.IntVal)
+	}
+
+	if c.FloatVal != 0 {
+		val = fmt.Sprintf("%f", c.FloatVal)
+	}
+
+	return
+}
+
 func (c *CellValue) String() string {
 	return fmt.Sprintf("String: %v; Int: %v; Float:%v", c.StringVal, c.IntVal, c.FloatVal)
 }
