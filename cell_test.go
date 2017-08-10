@@ -16,7 +16,7 @@ func TestMarshalJSON(t *testing.T) {
 	if b, err = c1.MarshalJSON(); err != nil {
 		t.Error(err)
 	} else {
-		assert.Equal(b, []byte{53}, "Should be equal to 53 or \"5\"")
+		assert.Equal(b, []byte{53}, "Should be equal to 53 or \"53\"")
 	}
 
 	c2.StringVal = "HEY"

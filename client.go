@@ -57,40 +57,45 @@ func validateURL(u string) (isValid bool, err error) {
 
 //GetSheetFilterCols returns a Sheet but filter to only the specified columns
 //Columns are specified via the Column Id
-func (c *Client) GetSheetFilterCols(id string, onlyTheseColumns []string) (Sheet, error) {
+func (c *Client) GetSheetFilterCols(id string, onlyTheseColumns []string) (*Sheet, error) {
 	filter := "columnIds=" + strings.Join(onlyTheseColumns, ",")
 	return c.GetSheet(id, filter)
 }
 
 //GetSheet returns a sheet with the specified Id
-func (c *Client) GetSheet(id, queryFilter string) (Sheet, error) {
-	s := Sheet{}
-
+func (c *Client) GetSheet(id, queryFilter string) (s *Sheet, err error) {
 	path := "sheets/" + id
 	if queryFilter != "" {
 		path += "?" + queryFilter
 	}
 
-	body, err := c.Get(path)
+	body, statusCode, err := c.Get(path)
 	if err != nil {
-		return s, errors.Wrapf(err, "Failed to get sheet (ID: %v)", id)
+		err = errors.Wrapf(err, "Failed to get sheet (ID: %v)", id)
+		return
 
 	}
 	defer body.Close()
 
 	dec := json.NewDecoder(body)
-	if err := dec.Decode(&s); err != nil {
-		return s, errors.Wrap(err, "Failed to decode")
+
+	if statusCode == 200 {
+		s = &Sheet{}
+		if err = dec.Decode(s); err != nil {
+			err = errors.Wrap(err, "Failed to decode into Sheet")
+		}
+	} else {
+		err = ErrorItemDecodeToError(statusCode, dec)
 	}
 
-	return s, nil
+	return
 }
 
 //GetColumns will return back the columns for the specified Sheet
 func (c *Client) GetColumns(sheetID string) (cols []Column, err error) {
 	path := fmt.Sprintf("sheets/%v/columns", sheetID)
 
-	body, err := c.Get(path)
+	body, statusCode, err := c.Get(path)
 	if err != nil {
 		return nil, err
 	}
@@ -99,12 +104,16 @@ func (c *Client) GetColumns(sheetID string) (cols []Column, err error) {
 	var resp PaginatedResponse
 	//TODO: need generic handling and ability to read from pages to get all data... eventually
 	dec := json.NewDecoder(body)
-	if err = dec.Decode(&resp); err != nil {
-		return nil, errors.Wrap(err, "Failed to decode response")
-	}
+	if statusCode == 200 {
+		if err = dec.Decode(&resp); err != nil {
+			return nil, errors.Wrap(err, "Failed to decode response")
+		}
 
-	if err = json.Unmarshal(resp.Data, &cols); err != nil {
-		return nil, errors.Wrap(err, "Failed to decode columns")
+		if err = json.Unmarshal(resp.Data, &cols); err != nil {
+			return nil, errors.Wrap(err, "Failed to decode columns")
+		}
+	} else {
+		err = ErrorItemDecodeToError(statusCode, dec)
 	}
 
 	return
@@ -112,7 +121,7 @@ func (c *Client) GetColumns(sheetID string) (cols []Column, err error) {
 
 //GetJSONString with return a Json string of the result
 func (c *Client) GetJSONString(path string, prettify bool) (string, error) {
-	body, err := c.Get(path)
+	body, _, err := c.Get(path)
 	if err != nil {
 		return "", errors.Wrap(err, "Failed to Get JSON String")
 	}
@@ -142,6 +151,8 @@ func (c *Client) GetJSONString(path string, prettify bool) (string, error) {
 
 	return s, nil
 }
+
+//TODO: need addRow that performs some sort of parsing of the response...
 
 //AddRowToSheet will add a single row of data to an existing smartsheet by ID based on the specified cellValues
 func (c *Client) AddRowToSheet(sheetID string, rowOpt RowPostOptions, cellValues ...CellValue) (io.ReadCloser, error) {
@@ -200,16 +211,20 @@ func (c *Client) AddRowsToSheet(sheetID string, rowOpt RowPostOptions, rows []Ro
 		}
 	}
 
-	body, err := c.PostObject(fmt.Sprintf("sheets/%v/rows", sheetID), rows)
+	body, statusCode, err := c.PostObject(fmt.Sprintf("sheets/%v/rows", sheetID), rows)
 	if err != nil {
 		return nil, err
+	}
+
+	if statusCode != 200 {
+		return nil, ErrorItemDecodeToErrorReader(statusCode, body)
 	}
 
 	return body, nil
 }
 
 //DeleteRowsFromSheet will delte the specified rowes from the specified sheet
-func (c *Client) DeleteRowsFromSheet(sheetID string, rows []Row) (io.ReadCloser, error) {
+func (c *Client) DeleteRowsFromSheet(sheetID string, rows []Row) (io.ReadCloser, int, error) {
 	ids := []string{}
 	for _, r := range rows {
 		ids = append(ids, strconv.FormatInt(r.ID, 10))
@@ -219,25 +234,17 @@ func (c *Client) DeleteRowsFromSheet(sheetID string, rows []Row) (io.ReadCloser,
 }
 
 //DeleteRowsIdsFromSheet will delete the specified rowIDs from the specified sheet
-func (c *Client) DeleteRowsIdsFromSheet(sheetID string, ids []string) (io.ReadCloser, error) {
+func (c *Client) DeleteRowsIdsFromSheet(sheetID string, ids []string) (io.ReadCloser, int, error) {
 	path := fmt.Sprintf("sheets/%v/rows?ids=%v", sheetID, strings.Join(ids, ","))
 	return c.Delete(path)
 }
 
+//TODO: need to see sucess response as well... think it also looks like error item
+
 //UpdateRowsOnSheet will update the specified rows and data
-func (c *Client) UpdateRowsOnSheet(sheetID string, rows []Row) (io.ReadCloser, error) {
-	//clean the row to remove the data that cannot be sent accross
+func (c *Client) UpdateRowsOnSheet(sheetID string, rows []Row) (io.ReadCloser, int, error) {
 
 	// //the caller needs to pass in clean data right now
-	// newRows := []Row{}
-	// copy(newRows, rows)
-
-	// for i := range newRows {
-	// 	newRows[i].CreatedAt = nil
-	// 	newRows[i].ModifiedAt = nil
-	// 	newRows[i]. = nil
-	// }
-
 	return c.PutObject(fmt.Sprintf("sheets/%v/rows", sheetID), rows)
 }
 
@@ -254,59 +261,59 @@ func encodeData(data interface{}) (io.Reader, error) {
 }
 
 //PostObject will post data as JSOn
-func (c *Client) PostObject(path string, data interface{}) (io.ReadCloser, error) {
+func (c *Client) PostObject(path string, data interface{}) (io.ReadCloser, int, error) {
 
 	b, err := encodeData(data)
 	if err != nil {
-		return nil, err
+		return nil, 0, errors.Wrap(err, "Cannot encode data")
 	}
 
 	return c.Post(path, b)
 }
 
 //Post will send a POST request through the client
-func (c *Client) Post(path string, body io.Reader) (io.ReadCloser, error) {
+func (c *Client) Post(path string, body io.Reader) (io.ReadCloser, int, error) {
 	return c.send("POST", path, body)
 }
 
 //PutObject will post data as JSOn
-func (c *Client) PutObject(path string, data interface{}) (io.ReadCloser, error) {
+func (c *Client) PutObject(path string, data interface{}) (io.ReadCloser, int, error) {
 
 	b, err := encodeData(data)
 	if err != nil {
-		return nil, err
+		return nil, 0, errors.Wrap(err, "Cannot encode data")
 	}
 	return c.Put(path, b)
 }
 
 //Put will send a PUT request through the client
-func (c *Client) Put(path string, body io.Reader) (io.ReadCloser, error) {
+func (c *Client) Put(path string, body io.Reader) (io.ReadCloser, int, error) {
 	return c.send("PUT", path, body)
 }
 
 //Delete will send a DELETE request through the client
-func (c *Client) Delete(path string) (io.ReadCloser, error) {
+func (c *Client) Delete(path string) (io.ReadCloser, int, error) {
 	return c.send("DELETE", path, nil)
 }
 
 //Get will append the proper info to pull from the API
-func (c *Client) Get(path string) (io.ReadCloser, error) {
+func (c *Client) Get(path string) (io.ReadCloser, int, error) {
 	return c.send("GET", path, nil)
 }
 
-func (c *Client) send(verb string, p string, body io.Reader) (io.ReadCloser, error) {
+func (c *Client) send(verb string, p string, body io.Reader) (io.ReadCloser, int, error) {
 	var fullPath = c.url + "/" + p
 
 	//validate URL
 	_, err := validateURL(fullPath)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	req, err := http.NewRequest(verb, fullPath, body)
 
 	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to create %v request", verb)
+		return nil, 0, errors.Wrapf(err, "Failed to create %v request", verb)
 	}
 
 	log.Printf("URL: %v\n", req.URL)
@@ -315,9 +322,8 @@ func (c *Client) send(verb string, p string, body io.Reader) (io.ReadCloser, err
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to %v", verb)
+		return nil, 0, errors.Wrapf(err, "Failed to %v", verb)
 	}
 
-	//TODO: check resp.StatusCode?
-	return resp.Body, nil
+	return resp.Body, resp.StatusCode, nil
 }

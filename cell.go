@@ -23,8 +23,13 @@ type CellValue struct {
 	FloatVal  float32
 }
 
-//AsString returns the underlying value as a string regardless of type
-func (c *CellValue) AsString() (val string) {
+//AsDebugString returns a debug string containing each of the underlying values of a Cell
+func (c *CellValue) AsDebugString() (val string) {
+	return fmt.Sprintf("String: %v; Int: %v; Float:%v", c.StringVal, c.IntVal, c.FloatVal)
+}
+
+//String returns the underlying value as a string regardless of type
+func (c *CellValue) String() (val string) {
 	if c.StringVal != "" {
 		val = c.StringVal
 	}
@@ -38,10 +43,6 @@ func (c *CellValue) AsString() (val string) {
 	}
 
 	return
-}
-
-func (c *CellValue) String() string {
-	return fmt.Sprintf("String: %v; Int: %v; Float:%v", c.StringVal, c.IntVal, c.FloatVal)
 }
 
 //SetString will clear all values and set only the string
