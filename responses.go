@@ -89,10 +89,11 @@ Example Response:
 
 //ErrorItem reprsents a single failure during an operation
 type ErrorItem struct {
-	ErrorCode int               `json:"errorCode"`
-	Message   string            `json:"message"`
-	RefID     string            `json:"refId,omitempty"`
-	Details   []ErrorItemDetail `json:"details,omitempty"`
+	ErrorCode  int               `json:"errorCode"`
+	Message    string            `json:"message"`
+	RefID      string            `json:"refId,omitempty"`
+	Details    []ErrorItemDetail `json:"details,omitempty"`
+	StatusCode int               `json:"-"` //not part of SS API, but used to provide extra context
 }
 
 //String returns a string representation of an ErrorItem for output purposes
@@ -100,21 +101,27 @@ func (e *ErrorItem) String() string {
 	return fmt.Sprintf("Error Code: %v, Message: %v, RefId: %v", e.ErrorCode, e.Message, e.RefID)
 }
 
-//ErrorItemDecodeToError translates the SmartSheet ErrorItem into a Go erorr
-func ErrorItemDecodeToError(statusCode int, bodyDec *json.Decoder) error {
-	e := ErrorItem{}
-	if err := bodyDec.Decode(&e); err != nil {
-		return errors.Wrap(err, "Failed to decode into ErrorItem")
-	}
-	return errors.Errorf("Error (%v): %s", statusCode, e.String())
+//Error returns a string representation of an ErrorItem for output purposes
+func (e *ErrorItem) Error() string {
+	return fmt.Sprintf("Error (%v): %s", e.StatusCode, e.String())
 }
 
-//ErrorItemDecodeToErrorReader translates the SmartSheet ErrorItem into a Go erorr taking a ReadCloser
-func ErrorItemDecodeToErrorReader(statusCode int, body io.ReadCloser) error {
+//ErrorItemDecode translates the SmartSheet ErrorItem into a Go erorr
+func ErrorItemDecode(statusCode int, bodyDec *json.Decoder) error {
+	e := &ErrorItem{}
+	if err := bodyDec.Decode(e); err != nil {
+		return errors.Wrap(err, "Failed to decode into ErrorItem")
+	}
+	e.StatusCode = statusCode
+	return e
+}
+
+//ErrorItemDecodeFromReader translates the SmartSheet ErrorItem into a Go erorr taking a ReadCloser
+func ErrorItemDecodeFromReader(statusCode int, body io.ReadCloser) error {
 	bodyDec := json.NewDecoder(body)
 	defer body.Close()
 
-	return ErrorItemDecodeToError(statusCode, bodyDec)
+	return ErrorItemDecode(statusCode, bodyDec)
 }
 
 //ErrorItemDetail is the detail for a single failure

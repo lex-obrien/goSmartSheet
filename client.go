@@ -16,9 +16,10 @@ import (
 
 //Client is used to interact with the SamartSheet API
 type Client struct {
-	url    string
-	apiKey string
-	client *http.Client
+	url         string
+	apiKey      string
+	client      *http.Client
+	verboseMode bool
 }
 
 //GetClient will return back a SmartSheet client based on the specified apiKey
@@ -85,7 +86,7 @@ func (c *Client) GetSheet(id, queryFilter string) (s *Sheet, err error) {
 			err = errors.Wrap(err, "Failed to decode into Sheet")
 		}
 	} else {
-		err = ErrorItemDecodeToError(statusCode, dec)
+		err = ErrorItemDecode(statusCode, dec)
 	}
 
 	return
@@ -106,14 +107,14 @@ func (c *Client) GetColumns(sheetID string) (cols []Column, err error) {
 	dec := json.NewDecoder(body)
 	if statusCode == 200 {
 		if err = dec.Decode(&resp); err != nil {
-			return nil, errors.Wrap(err, "Failed to decode response")
+			return nil, errors.Wrap(err, "Call seems successful, but failed to decode response")
 		}
 
 		if err = json.Unmarshal(resp.Data, &cols); err != nil {
-			return nil, errors.Wrap(err, "Failed to decode columns")
+			return nil, errors.Wrap(err, "Call seems successful, but failed to decode columns")
 		}
 	} else {
-		err = ErrorItemDecodeToError(statusCode, dec)
+		err = ErrorItemDecode(statusCode, dec)
 	}
 
 	return
@@ -217,7 +218,7 @@ func (c *Client) AddRowsToSheet(sheetID string, rowOpt RowPostOptions, rows []Ro
 	}
 
 	if statusCode != 200 {
-		return nil, ErrorItemDecodeToErrorReader(statusCode, body)
+		return nil, ErrorItemDecodeFromReader(statusCode, body)
 	}
 
 	return body, nil
@@ -255,8 +256,6 @@ func encodeData(data interface{}) (io.Reader, error) {
 		return nil, errors.Wrap(err, "Failed to encode")
 	}
 
-	log.Printf("Body:\n%v\n", string(b.Bytes()))
-
 	return b, nil
 }
 
@@ -266,6 +265,11 @@ func (c *Client) PostObject(path string, data interface{}) (io.ReadCloser, int, 
 	b, err := encodeData(data)
 	if err != nil {
 		return nil, 0, errors.Wrap(err, "Cannot encode data")
+	}
+
+	if c.verboseMode {
+		buf := b.(*bytes.Buffer)
+		log.Printf("Body:\n%v\n", string(buf.Bytes()))
 	}
 
 	return c.Post(path, b)
@@ -316,7 +320,9 @@ func (c *Client) send(verb string, p string, body io.Reader) (io.ReadCloser, int
 		return nil, 0, errors.Wrapf(err, "Failed to create %v request", verb)
 	}
 
-	log.Printf("URL: %v\n", req.URL)
+	if c.verboseMode {
+		log.Printf("URL: %v\n", req.URL)
+	}
 
 	req.Header.Add("Authorization", "Bearer "+c.apiKey)
 
