@@ -51,56 +51,45 @@ func TestCellValue_String(t *testing.T) {
 	assert := assert.New(t)
 	var cv CellValue
 	var v string
-	var e error
 
 	cv.SetInt(53)
-	v, e = cv.String()
-	assert.NoError(e)
+	v = cv.String()
 	assert.Equal("53", v)
 
 	cv.SetInt(141453)
-	v, e = cv.String()
-	assert.NoError(e)
+	v = cv.String()
 	assert.Equal("141453", v)
 
 	cv.SetInt(2)
-	v, e = cv.String()
-	assert.NoError(e)
+	v = cv.String()
 	assert.Equal("2", v)
 
 	cv.SetString("BOB")
-	v, e = cv.String()
-	assert.NoError(e)
+	v = cv.String()
 	assert.Equal("BOB", v)
 
 	cv.SetString("Be3twg")
-	v, e = cv.String()
-	assert.NoError(e)
+	v = cv.String()
 	assert.Equal("Be3twg", v)
 
 	cv.SetFloat(1.346)
-	v, e = cv.String()
-	assert.NoError(e)
+	v = cv.String()
 	assert.Equal("1.346", v)
 
 	cv.SetFloat(1.34600)
-	v, e = cv.String()
-	assert.NoError(e)
+	v = cv.String()
 	assert.Equal("1.346", v)
 
 	cv.SetFloat(1.30000)
-	v, e = cv.String()
-	assert.NoError(e)
+	v = cv.String()
 	assert.Equal("1.3", v)
 
 	cv.SetFloat(0001.30000)
-	v, e = cv.String()
-	assert.NoError(e)
+	v = cv.String()
 	assert.Equal("1.3", v)
 
 	cv.SetFloat(0001.30003)
-	v, e = cv.String()
-	assert.NoError(e)
+	v = cv.String()
 	assert.Equal("1.30003", v)
 }
 
@@ -142,7 +131,7 @@ func TestUnMarshalJSON(t *testing.T) {
 	if err = cv.UnmarshalJSON(b); err != nil {
 		t.Error(err)
 	} else {
-		v, _ := cv.String()
+		v := cv.String()
 		assert.Equal("HEY", v)
 		assert.Nil(cv.FloatVal)
 		assert.Nil(cv.IntVal)
@@ -153,7 +142,7 @@ func TestUnMarshalJSON(t *testing.T) {
 		t.Error(err)
 	} else {
 		assert.NotNil(cv.StringVal)
-		v, _ := cv.String()
+		v := cv.String()
 		assert.Equal("1.2", v)
 		assert.Nil(cv.FloatVal)
 		assert.Nil(cv.IntVal)
@@ -179,6 +168,21 @@ func TestUnMarshalJSON(t *testing.T) {
 		assert.Equal(25, v)
 		assert.Nil(cv.FloatVal)
 		assert.Nil(cv.StringVal)
+	}
+}
+
+func TestUnMarshalComplexJSON(t *testing.T) {
+	assert := assert.New(t)
+	var cv CellValue
+	var err error
+	var b []byte
+
+	b = []byte(`{"foo":22}`)
+	if err = cv.UnmarshalJSON(b); err != nil {
+		t.Error(err)
+	} else {
+		v := cv.String()
+		assert.Equal(`{"foo":22}`, v)
 	}
 }
 

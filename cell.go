@@ -26,13 +26,13 @@ type CellValue struct {
 	FloatVal  *float64
 }
 
-//AsDebugString returns a debug string containing each of the underlying values of a Cell
-func (c *CellValue) AsDebugString() (val string) {
+//StringDebug returns a debug string containing each of the underlying values of a Cell
+func (c *CellValue) StringDebug() (val string) {
 	return fmt.Sprintf("String: %v; Int: %v; Float:%v", c.StringVal, c.IntVal, c.FloatVal)
 }
 
 //String returns the underlying value as a string regardless of type
-func (c *CellValue) String() (val string, err error) {
+func (c *CellValue) String() (val string) {
 	if c.StringVal != nil {
 		val = *(c.StringVal)
 		return
@@ -48,7 +48,7 @@ func (c *CellValue) String() (val string, err error) {
 		return
 	}
 
-	err = errors.New("No basic types set for this CellValue")
+	val = string(c.Value)
 	return
 }
 
