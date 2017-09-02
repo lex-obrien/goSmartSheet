@@ -109,7 +109,7 @@ type Row struct {
 	Ident    int16 `json:"ident,omitempty"`
 	Outdent  int16 `json:"outdent,omitempty"`
 
-	//Above will never be populated on resposnes, but can be used on Requests
+	//Above will never be populated on responses, but can be used on Requests
 	Above     bool  `json:"above,omitempty"`
 	SiblingID int64 `json:"siblingId,omitempty"`
 }

@@ -2,10 +2,7 @@ package goSmartSheet
 
 import (
 	"encoding/json"
-	"fmt"
 	"strconv"
-
-	"github.com/pkg/errors"
 )
 
 //Cell is a SmartSheet cell
@@ -28,7 +25,23 @@ type CellValue struct {
 
 //StringDebug returns a debug string containing each of the underlying values of a Cell
 func (c *CellValue) StringDebug() (val string) {
-	return fmt.Sprintf("String: %v; Int: %v; Float:%v", c.StringVal, c.IntVal, c.FloatVal)
+	delim := ""
+	if c.StringVal != nil {
+		val = "String Val: '" + *(c.StringVal) + "'"
+		delim = " "
+	}
+
+	if c.IntVal != nil {
+		val = val + delim + "Int Val: '" + strconv.Itoa(*c.IntVal) + "'"
+		delim = " "
+	}
+
+	if c.FloatVal != nil {
+		val = val + delim + "Float Val: '" + strconv.FormatFloat(*c.FloatVal, 'f', -1, 64) + "'"
+		delim = " "
+	}
+
+	return
 }
 
 //String returns the underlying value as a string regardless of type
@@ -53,24 +66,20 @@ func (c *CellValue) String() (val string) {
 }
 
 //Int will return the Integer representation of the underlying value.  This should only be used if the value is known to be an Int
-func (c *CellValue) Int() (val int, err error) {
+func (c *CellValue) Int() (val int) {
 	if c.IntVal != nil {
 		val = (*(c.IntVal))
-		return
 	}
 
-	err = errors.New("CellValue was not an Int")
 	return
 }
 
 //Float will return the Float representation of the underlying value.  This should only be used if the value is known to be an Float.
-func (c *CellValue) Float() (val float64, err error) {
+func (c *CellValue) Float() (val float64) {
 	if c.FloatVal != nil {
 		val = (*(c.FloatVal))
-		return
 	}
 
-	err = errors.New("CellValue was not an Float")
 	return
 }
 

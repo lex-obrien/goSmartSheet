@@ -153,7 +153,7 @@ func TestUnMarshalJSON(t *testing.T) {
 		t.Error(err)
 	} else {
 		assert.NotNil(cv.FloatVal)
-		v, _ := cv.Float()
+		v := cv.Float()
 		assert.Equal(1.2, v)
 		assert.Nil(cv.StringVal)
 		assert.Nil(cv.IntVal)
@@ -164,7 +164,7 @@ func TestUnMarshalJSON(t *testing.T) {
 		t.Error(err)
 	} else {
 		assert.NotNil(cv.IntVal)
-		v, _ := cv.Int()
+		v := cv.Int()
 		assert.Equal(25, v)
 		assert.Nil(cv.FloatVal)
 		assert.Nil(cv.StringVal)

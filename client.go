@@ -16,10 +16,11 @@ import (
 
 //Client is used to interact with the SamartSheet API
 type Client struct {
-	url         string
-	apiKey      string
-	client      *http.Client
-	verboseMode bool
+	url    string
+	apiKey string
+	client *http.Client
+	//VerboseMode set to true will log extra debug when the client is commmunicating with the server
+	VerboseMode bool
 }
 
 //GetClient will return back a SmartSheet client based on the specified apiKey
@@ -48,10 +49,24 @@ func GetClient(apiKey string, u string) (api *Client, err error) {
 
 func validateURL(u string) (isValid bool, err error) {
 	//validate url
-	_, err = url.Parse(u)
-	if err != nil {
-		err = errors.Wrap(err, "Invalid Smartsheet URL")
+	if u == "" {
+		err = errors.New("Blank URL")
+		return //early sanity check
 	}
+
+	var rURL *url.URL
+	rURL, err = url.Parse(u)
+
+	if err != nil {
+		err = errors.Wrapf(err, "Invalid URL '%v'", u)
+		return
+	}
+
+	if rURL.Host == "" || rURL.Scheme == "" || rURL.Path == "" {
+		err = errors.New("Required URL elements missing (Host, Scheme or Path)")
+		return
+	}
+
 	isValid = true
 	return
 }
@@ -216,6 +231,8 @@ func (c *Client) AddRowsToSheet(sheetID string, rowOpt RowPostOptions, rows []Ro
 	if err != nil {
 		return nil, err
 	}
+	//TODO need to close here in case there are errors rather than relying on callers
+	//defer body.Close()
 
 	if statusCode != 200 {
 		return nil, ErrorItemDecodeFromReader(statusCode, body)
@@ -267,7 +284,7 @@ func (c *Client) PostObject(path string, data interface{}) (io.ReadCloser, int, 
 		return nil, 0, errors.Wrap(err, "Cannot encode data")
 	}
 
-	if c.verboseMode {
+	if c.VerboseMode {
 		buf := b.(*bytes.Buffer)
 		log.Printf("Body:\n%v\n", string(buf.Bytes()))
 	}
@@ -311,7 +328,7 @@ func (c *Client) send(verb string, p string, body io.Reader) (io.ReadCloser, int
 	//validate URL
 	_, err := validateURL(fullPath)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, errors.WithStack(err)
 	}
 
 	req, err := http.NewRequest(verb, fullPath, body)
@@ -320,7 +337,7 @@ func (c *Client) send(verb string, p string, body io.Reader) (io.ReadCloser, int
 		return nil, 0, errors.Wrapf(err, "Failed to create %v request", verb)
 	}
 
-	if c.verboseMode {
+	if c.VerboseMode {
 		log.Printf("URL: %v\n", req.URL)
 	}
 
