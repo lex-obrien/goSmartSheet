@@ -107,6 +107,40 @@ func (c *Client) GetSheet(id, queryFilter string) (s *Sheet, err error) {
 	return
 }
 
+//CreateSheet creates the specified sheet returning its id.
+//Sheet is overriden by the new sheet
+func (c *Client) CreateSheet(s *Sheet) (string, error) {
+	path := "sheets/"
+
+	body, err := c.PostObject(path, s)
+	if err != nil {
+		return "", err
+	}
+
+	newS := &Sheet{}
+	if err = decodeAsResultResponseInto(body, s); err != nil {
+		return "", err
+	}
+
+	s = newS
+	return s.IDToA(), nil
+}
+
+//CopySheet copies the specified sheetId returning a new shallow sheet object
+func (c *Client) CopySheet(id string, cd *ContainerDestination) (*Sheet, error) {
+	path := fmt.Sprintf("sheets/%v/copy", id)
+
+	body, err := c.PostObject(path, cd)
+	if err != nil {
+		return nil, err
+	}
+
+	s := &Sheet{}
+	err = decodeAsResultResponseInto(body, s)
+
+	return s, err
+}
+
 //GetColumns will return back the columns for the specified Sheet
 func (c *Client) GetColumns(sheetID string) (cols []Column, err error) {
 	path := fmt.Sprintf("sheets/%v/columns", sheetID)
@@ -135,6 +169,28 @@ func (c *Client) GetColumns(sheetID string) (cols []Column, err error) {
 	return
 }
 
+func decodeAsResultResponseInto(body io.ReadCloser, v interface{}) error {
+	var err error
+	dec := json.NewDecoder(body)
+	defer body.Close()
+
+	r := &ResultResponse{}
+	if err = dec.Decode(r); err != nil {
+		return errors.Wrap(err, "Failed to decode into Result")
+	}
+
+	if r.ResultCode != 0 {
+		return errors.Wrap(err, "Result Code returned non-success")
+	}
+
+	//try to decode as specified object
+	if err = json.Unmarshal(r.Result, v); err != nil {
+		return errors.Wrapf(err, "Failed to decode into object %T", v)
+	}
+
+	return nil
+}
+
 //GetJSONString with return a Json string of the result
 func (c *Client) GetJSONString(path string, prettify bool) (string, error) {
 	body, _, err := c.Get(path)
@@ -150,6 +206,7 @@ func (c *Client) GetJSONString(path string, prettify bool) (string, error) {
 		var m json.RawMessage
 
 		dec := json.NewDecoder(body)
+
 		if err := dec.Decode(&m); err != nil {
 			return "", errors.Wrap(err, "Failed to decode")
 		}
@@ -227,15 +284,9 @@ func (c *Client) AddRowsToSheet(sheetID string, rowOpt RowPostOptions, rows []Ro
 		}
 	}
 
-	body, statusCode, err := c.PostObject(fmt.Sprintf("sheets/%v/rows", sheetID), rows)
+	body, err := c.PostObject(fmt.Sprintf("sheets/%v/rows", sheetID), rows)
 	if err != nil {
 		return nil, err
-	}
-	//TODO need to close here in case there are errors rather than relying on callers
-	//defer body.Close()
-
-	if statusCode != 200 {
-		return nil, ErrorItemDecodeFromReader(statusCode, body)
 	}
 
 	return body, nil
@@ -260,7 +311,7 @@ func (c *Client) DeleteRowsIdsFromSheet(sheetID string, ids []string) (io.ReadCl
 //TODO: need to see sucess response as well... think it also looks like error item
 
 //UpdateRowsOnSheet will update the specified rows and data
-func (c *Client) UpdateRowsOnSheet(sheetID string, rows []Row) (io.ReadCloser, int, error) {
+func (c *Client) UpdateRowsOnSheet(sheetID string, rows []Row) (io.ReadCloser, error) {
 
 	// //the caller needs to pass in clean data right now
 	return c.PutObject(fmt.Sprintf("sheets/%v/rows", sheetID), rows)
@@ -277,11 +328,11 @@ func encodeData(data interface{}) (io.Reader, error) {
 }
 
 //PostObject will post data as JSOn
-func (c *Client) PostObject(path string, data interface{}) (io.ReadCloser, int, error) {
+func (c *Client) PostObject(path string, data interface{}) (io.ReadCloser, error) {
 
 	b, err := encodeData(data)
 	if err != nil {
-		return nil, 0, errors.Wrap(err, "Cannot encode data")
+		return nil, errors.Wrap(err, "Cannot encode data")
 	}
 
 	if c.VerboseMode {
@@ -289,7 +340,16 @@ func (c *Client) PostObject(path string, data interface{}) (io.ReadCloser, int, 
 		log.Printf("Body:\n%v\n", string(buf.Bytes()))
 	}
 
-	return c.Post(path, b)
+	resp, statusCode, err := c.Post(path, b)
+	if err != nil {
+		return resp, err
+	}
+
+	if statusCode != 200 {
+		return nil, ErrorItemDecodeFromReader(statusCode, resp)
+	}
+
+	return resp, nil
 }
 
 //Post will send a POST request through the client
@@ -297,14 +357,24 @@ func (c *Client) Post(path string, body io.Reader) (io.ReadCloser, int, error) {
 	return c.send("POST", path, body)
 }
 
-//PutObject will post data as JSOn
-func (c *Client) PutObject(path string, data interface{}) (io.ReadCloser, int, error) {
+//PutObject will post data as JSON
+func (c *Client) PutObject(path string, data interface{}) (io.ReadCloser, error) {
 
 	b, err := encodeData(data)
 	if err != nil {
-		return nil, 0, errors.Wrap(err, "Cannot encode data")
+		return nil, errors.Wrap(err, "Cannot encode data")
 	}
-	return c.Put(path, b)
+
+	resp, statusCode, err := c.Put(path, b)
+	if err != nil {
+		return resp, err
+	}
+
+	if statusCode != 200 {
+		return nil, ErrorItemDecodeFromReader(statusCode, resp)
+	}
+
+	return resp, nil
 }
 
 //Put will send a PUT request through the client
