@@ -107,6 +107,42 @@ func (c *Client) GetSheet(id, queryFilter string) (s *Sheet, err error) {
 	return
 }
 
+//CreateSheet creates the specified sheet returning its id.
+//Sheet is overriden by the new sheet
+func (c *Client) CreateSheet(s *Sheet) (string, error) {
+	path := "sheets/"
+
+	body, statusCode, err := c.PostObject(path, s)
+	if err != nil {
+		return "", errors.Wrapf(err, "Failed to create sheet (Name: %v)", s.Name)
+	}
+	defer body.Close()
+
+	dec := json.NewDecoder(body)
+
+	if statusCode != 200 {
+		return "", ErrorItemDecode(statusCode, dec)
+	}
+
+	r := &ResultResponse{}
+	if err = dec.Decode(r); err != nil {
+		return "", errors.Wrap(err, "Failed to decode into Result")
+	}
+
+	if r.ResultCode != 0 {
+		return "", errors.Wrap(err, "Result Code returned non-success")
+	}
+
+	//decode result as a sheet
+	newS := &Sheet{}
+	if err = json.Unmarshal(r.Result, newS); err != nil {
+		return "", errors.Wrap(err, "Failed to decode into Sheet")
+	}
+
+	s = newS
+	return s.IDToA(), nil
+}
+
 //GetColumns will return back the columns for the specified Sheet
 func (c *Client) GetColumns(sheetID string) (cols []Column, err error) {
 	path := fmt.Sprintf("sheets/%v/columns", sheetID)

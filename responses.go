@@ -55,12 +55,10 @@ type RowResponse struct {
 	ModifiedAt time.Time `json:"modifiedAt"`
 }
 
-//BulkOperationFailure is the generic response from the SmartSheet API
-type BulkOperationFailure struct {
-	Message     string            `json:"message"`
-	ResultCode  int               `json:"resultCode"`
+//ResultResponse is the generic result including a returned object
+type ResultResponse struct {
+	Response
 	Result      json.RawMessage   `json:"result"`
-	Version     int               `json:"version"`
 	FailedItems []BulkItemFailure `json:"failedItems"`
 }
 
