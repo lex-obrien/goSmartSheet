@@ -59,6 +59,7 @@ type RowResponse struct {
 type ResultResponse struct {
 	Response
 	Result      json.RawMessage   `json:"result"`
+	
 	FailedItems []BulkItemFailure `json:"failedItems,omitempty"`
 }
 

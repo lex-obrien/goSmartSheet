@@ -311,7 +311,7 @@ func (c *Client) DeleteRowsIdsFromSheet(sheetID string, ids []string) (io.ReadCl
 //TODO: need to see sucess response as well... think it also looks like error item
 
 //UpdateRowsOnSheet will update the specified rows and data
-func (c *Client) UpdateRowsOnSheet(sheetID string, rows []Row) (io.ReadCloser, int, error) {
+func (c *Client) UpdateRowsOnSheet(sheetID string, rows []Row) (io.ReadCloser, error) {
 
 	// //the caller needs to pass in clean data right now
 	return c.PutObject(fmt.Sprintf("sheets/%v/rows", sheetID), rows)
