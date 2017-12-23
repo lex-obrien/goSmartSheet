@@ -59,7 +59,7 @@ type RowResponse struct {
 type ResultResponse struct {
 	Response
 	Result      json.RawMessage   `json:"result"`
-	FailedItems []BulkItemFailure `json:"failedItems"`
+	FailedItems []BulkItemFailure `json:"failedItems,omitempty"`
 }
 
 //BulkItemFailure is a failure when a bulk operation occurs
