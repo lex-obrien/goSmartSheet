@@ -412,6 +412,7 @@ func (c *Client) send(verb string, p string, body io.Reader) (io.ReadCloser, int
 	}
 
 	req.Header.Add("Authorization", "Bearer "+c.apiKey)
+	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.client.Do(req)
 	if err != nil {
