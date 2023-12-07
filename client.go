@@ -259,7 +259,7 @@ func (c *Client) AddRowsToSheet(sheetID string, rowOpt RowPostOptions, rows []Ro
 					sheetCols, err = c.GetColumns(sheetID)
 					colsPopulated = true
 					if err != nil {
-						return nil, errors.Wrapf(err, "Cannot retrieve columns: %v")
+						return nil, errors.Wrapf(err, "Cannot retrieve columns for sheetID: %v", sheetID)
 					}
 
 					//perform basic validation
@@ -292,7 +292,7 @@ func (c *Client) AddRowsToSheet(sheetID string, rowOpt RowPostOptions, rows []Ro
 	return body, nil
 }
 
-// DeleteRowsFromSheet will delte the specified rowes from the specified sheet
+// DeleteRowsFromSheet will delete the specified rows from the specified sheet
 func (c *Client) DeleteRowsFromSheet(sheetID string, rows []Row) (io.ReadCloser, int, error) {
 	ids := []string{}
 	for _, r := range rows {
@@ -308,7 +308,7 @@ func (c *Client) DeleteRowsIdsFromSheet(sheetID string, ids []string) (io.ReadCl
 	return c.Delete(path)
 }
 
-//TODO: need to see sucess response as well... think it also looks like error item
+//TODO: need to see success response as well... think it also looks like error item
 
 // UpdateRowsOnSheet will update the specified rows and data
 func (c *Client) UpdateRowsOnSheet(sheetID string, rows []Row) (io.ReadCloser, error) {
@@ -354,8 +354,8 @@ func (c *Client) PostObject(path string, data interface{}) (io.ReadCloser, error
 
 // Post will send a POST request through the client
 func (c *Client) Post(path string, body io.Reader) (io.ReadCloser, int, error) {
-	//test
-	return c.send("POST", path, body)
+	h := map[string]string{"Content-Type": "application/json"}
+	return c.send("POST", path, body, h)
 }
 
 // PutObject will post data as JSON
@@ -380,20 +380,21 @@ func (c *Client) PutObject(path string, data interface{}) (io.ReadCloser, error)
 
 // Put will send a PUT request through the client
 func (c *Client) Put(path string, body io.Reader) (io.ReadCloser, int, error) {
-	return c.send("PUT", path, body)
+	h := map[string]string{"Content-Type": "application/json"}
+	return c.send("PUT", path, body, h)
 }
 
 // Delete will send a DELETE request through the client
 func (c *Client) Delete(path string) (io.ReadCloser, int, error) {
-	return c.send("DELETE", path, nil)
+	return c.send("DELETE", path, nil, nil)
 }
 
 // Get will append the proper info to pull from the API
 func (c *Client) Get(path string) (io.ReadCloser, int, error) {
-	return c.send("GET", path, nil)
+	return c.send("GET", path, nil, nil)
 }
 
-func (c *Client) send(verb string, p string, body io.Reader) (io.ReadCloser, int, error) {
+func (c *Client) send(verb string, p string, body io.Reader, additionalHeaders map[string]string) (io.ReadCloser, int, error) {
 	var fullPath = c.url + "/" + p
 
 	//validate URL
@@ -413,6 +414,12 @@ func (c *Client) send(verb string, p string, body io.Reader) (io.ReadCloser, int
 	}
 
 	req.Header.Add("Authorization", "Bearer "+c.apiKey)
+
+	if additionalHeaders != nil {
+		for k, v := range additionalHeaders {
+			req.Header.Add(k, v)
+		}
+	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
