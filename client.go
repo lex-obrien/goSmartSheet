@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-//Client is used to interact with the SamartSheet API
+// Client is used to interact with the SamartSheet API
 type Client struct {
 	url    string
 	apiKey string
@@ -23,8 +23,8 @@ type Client struct {
 	VerboseMode bool
 }
 
-//GetClient will return back a SmartSheet client based on the specified apiKey
-//Currently, this will always point to the prouction API
+// GetClient will return back a SmartSheet client based on the specified apiKey
+// Currently, this will always point to the prouction API
 func GetClient(apiKey string, u string) (api *Client, err error) {
 	if apiKey == "" {
 		err = errors.New("API Key must be provided")
@@ -71,14 +71,14 @@ func validateURL(u string) (isValid bool, err error) {
 	return
 }
 
-//GetSheetFilterCols returns a Sheet but filter to only the specified columns
-//Columns are specified via the Column Id
+// GetSheetFilterCols returns a Sheet but filter to only the specified columns
+// Columns are specified via the Column Id
 func (c *Client) GetSheetFilterCols(id string, onlyTheseColumns []string) (*Sheet, error) {
 	filter := "columnIds=" + strings.Join(onlyTheseColumns, ",")
 	return c.GetSheet(id, filter)
 }
 
-//GetSheet returns a sheet with the specified Id
+// GetSheet returns a sheet with the specified Id
 func (c *Client) GetSheet(id, queryFilter string) (s *Sheet, err error) {
 	path := "sheets/" + id
 	if queryFilter != "" {
@@ -107,8 +107,8 @@ func (c *Client) GetSheet(id, queryFilter string) (s *Sheet, err error) {
 	return
 }
 
-//CreateSheet creates the specified sheet returning its id.
-//Sheet is overriden by the new sheet
+// CreateSheet creates the specified sheet returning its id.
+// Sheet is overriden by the new sheet
 func (c *Client) CreateSheet(s *Sheet) (string, error) {
 	path := "sheets/"
 
@@ -126,7 +126,7 @@ func (c *Client) CreateSheet(s *Sheet) (string, error) {
 	return s.IDToA(), nil
 }
 
-//CopySheet copies the specified sheetId returning a new shallow sheet object
+// CopySheet copies the specified sheetId returning a new shallow sheet object
 func (c *Client) CopySheet(id string, cd *ContainerDestination) (*Sheet, error) {
 	path := fmt.Sprintf("sheets/%v/copy", id)
 
@@ -141,7 +141,7 @@ func (c *Client) CopySheet(id string, cd *ContainerDestination) (*Sheet, error) 
 	return s, err
 }
 
-//GetColumns will return back the columns for the specified Sheet
+// GetColumns will return back the columns for the specified Sheet
 func (c *Client) GetColumns(sheetID string) (cols []Column, err error) {
 	path := fmt.Sprintf("sheets/%v/columns", sheetID)
 
@@ -191,7 +191,7 @@ func decodeAsResultResponseInto(body io.ReadCloser, v interface{}) error {
 	return nil
 }
 
-//GetJSONString with return a Json string of the result
+// GetJSONString with return a Json string of the result
 func (c *Client) GetJSONString(path string, prettify bool) (string, error) {
 	body, _, err := c.Get(path)
 	if err != nil {
@@ -227,7 +227,7 @@ func (c *Client) GetJSONString(path string, prettify bool) (string, error) {
 
 //TODO: need addRow that performs some sort of parsing of the response...
 
-//AddRowToSheet will add a single row of data to an existing smartsheet by ID based on the specified cellValues
+// AddRowToSheet will add a single row of data to an existing smartsheet by ID based on the specified cellValues
 func (c *Client) AddRowToSheet(sheetID string, rowOpt RowPostOptions, cellValues ...CellValue) (io.ReadCloser, error) {
 	var r Row
 
@@ -239,7 +239,7 @@ func (c *Client) AddRowToSheet(sheetID string, rowOpt RowPostOptions, cellValues
 	return c.AddRowsToSheet(sheetID, rowOpt, []Row{r}, NormalValidation)
 }
 
-//AddRowsToSheet will add the specified rows to a sheet based on ID
+// AddRowsToSheet will add the specified rows to a sheet based on ID
 func (c *Client) AddRowsToSheet(sheetID string, rowOpt RowPostOptions, rows []Row, opt PostOptions) (io.ReadCloser, error) {
 
 	//adjust each row to match values
@@ -292,7 +292,7 @@ func (c *Client) AddRowsToSheet(sheetID string, rowOpt RowPostOptions, rows []Ro
 	return body, nil
 }
 
-//DeleteRowsFromSheet will delte the specified rowes from the specified sheet
+// DeleteRowsFromSheet will delte the specified rowes from the specified sheet
 func (c *Client) DeleteRowsFromSheet(sheetID string, rows []Row) (io.ReadCloser, int, error) {
 	ids := []string{}
 	for _, r := range rows {
@@ -302,7 +302,7 @@ func (c *Client) DeleteRowsFromSheet(sheetID string, rows []Row) (io.ReadCloser,
 	return c.DeleteRowsIdsFromSheet(sheetID, ids)
 }
 
-//DeleteRowsIdsFromSheet will delete the specified rowIDs from the specified sheet
+// DeleteRowsIdsFromSheet will delete the specified rowIDs from the specified sheet
 func (c *Client) DeleteRowsIdsFromSheet(sheetID string, ids []string) (io.ReadCloser, int, error) {
 	path := fmt.Sprintf("sheets/%v/rows?ids=%v", sheetID, strings.Join(ids, ","))
 	return c.Delete(path)
@@ -310,7 +310,7 @@ func (c *Client) DeleteRowsIdsFromSheet(sheetID string, ids []string) (io.ReadCl
 
 //TODO: need to see sucess response as well... think it also looks like error item
 
-//UpdateRowsOnSheet will update the specified rows and data
+// UpdateRowsOnSheet will update the specified rows and data
 func (c *Client) UpdateRowsOnSheet(sheetID string, rows []Row) (io.ReadCloser, error) {
 
 	// //the caller needs to pass in clean data right now
@@ -327,7 +327,7 @@ func encodeData(data interface{}) (io.Reader, error) {
 	return b, nil
 }
 
-//PostObject will post data as JSOn
+// PostObject will post data as JSOn
 func (c *Client) PostObject(path string, data interface{}) (io.ReadCloser, error) {
 
 	b, err := encodeData(data)
@@ -352,12 +352,13 @@ func (c *Client) PostObject(path string, data interface{}) (io.ReadCloser, error
 	return resp, nil
 }
 
-//Post will send a POST request through the client
+// Post will send a POST request through the client
 func (c *Client) Post(path string, body io.Reader) (io.ReadCloser, int, error) {
+	//test
 	return c.send("POST", path, body)
 }
 
-//PutObject will post data as JSON
+// PutObject will post data as JSON
 func (c *Client) PutObject(path string, data interface{}) (io.ReadCloser, error) {
 
 	b, err := encodeData(data)
@@ -377,17 +378,17 @@ func (c *Client) PutObject(path string, data interface{}) (io.ReadCloser, error)
 	return resp, nil
 }
 
-//Put will send a PUT request through the client
+// Put will send a PUT request through the client
 func (c *Client) Put(path string, body io.Reader) (io.ReadCloser, int, error) {
 	return c.send("PUT", path, body)
 }
 
-//Delete will send a DELETE request through the client
+// Delete will send a DELETE request through the client
 func (c *Client) Delete(path string) (io.ReadCloser, int, error) {
 	return c.send("DELETE", path, nil)
 }
 
-//Get will append the proper info to pull from the API
+// Get will append the proper info to pull from the API
 func (c *Client) Get(path string) (io.ReadCloser, int, error) {
 	return c.send("GET", path, nil)
 }
