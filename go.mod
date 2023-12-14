@@ -1,4 +1,4 @@
-module goSmartSheet
+module github.com/lex-obrien/goSmartSheet
 
 go 1.20
 
