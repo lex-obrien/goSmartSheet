@@ -339,8 +339,9 @@ func (c *Client) PostObject(path string, data interface{}) (io.ReadCloser, error
 		buf := b.(*bytes.Buffer)
 		log.Printf("Body:\n%v\n", string(buf.Bytes()))
 	}
-
-	resp, statusCode, err := c.Post(path, b)
+	
+	h := map[string]string{"Content-Type": "application/json"}
+	resp, statusCode, err := c.Post(path, b, h)
 	if err != nil {
 		return resp, err
 	}
@@ -353,9 +354,8 @@ func (c *Client) PostObject(path string, data interface{}) (io.ReadCloser, error
 }
 
 // Post will send a POST request through the client
-func (c *Client) Post(path string, body io.Reader) (io.ReadCloser, int, error) {
-	h := map[string]string{"Content-Type": "application/json"}
-	return c.send("POST", path, body, h)
+func (c *Client) Post(path string, body io.Reader, additionalHeaders map[string]string) (io.ReadCloser, int, error) {	
+	return c.send("POST", path, body, additionalHeaders)
 }
 
 // PutObject will post data as JSON
@@ -365,8 +365,9 @@ func (c *Client) PutObject(path string, data interface{}) (io.ReadCloser, error)
 	if err != nil {
 		return nil, errors.Wrap(err, "Cannot encode data")
 	}
-
-	resp, statusCode, err := c.Put(path, b)
+	
+	h := map[string]string{"Content-Type": "application/json"}
+	resp, statusCode, err := c.Put(path, b, h)
 	if err != nil {
 		return resp, err
 	}
@@ -379,9 +380,8 @@ func (c *Client) PutObject(path string, data interface{}) (io.ReadCloser, error)
 }
 
 // Put will send a PUT request through the client
-func (c *Client) Put(path string, body io.Reader) (io.ReadCloser, int, error) {
-	h := map[string]string{"Content-Type": "application/json"}
-	return c.send("PUT", path, body, h)
+func (c *Client) Put(path string, body io.Reader, additionalHeaders map[string]string) (io.ReadCloser, int, error) {	
+	return c.send("PUT", path, body, additionalHeaders)
 }
 
 // Delete will send a DELETE request through the client
